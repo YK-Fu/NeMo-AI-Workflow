@@ -1,0 +1,14 @@
+# Optional Params below with default values
+# profile_dir: null
+
+
+seed: 42
+char_ngrams: 5
+num_buckets: 20
+hashes_per_bucket: 13
+use_64_bit_hash: false
+buckets_per_shuffle: 1
+
+false_positive_check: False
+num_anchors: 2
+jaccard_threshold: 0.8
