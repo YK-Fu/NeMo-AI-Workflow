@@ -11,36 +11,8 @@ def import_checkpoint(args):
     Imports a checkpoint from Hugging Face to NeMo format.
     """
     # Step 1: Initialize configuration and model
-    if args.model_type == 'nemotron3':
-        cfg = llm.NemotronConfig()
-        model = llm.NemotronModel(config=cfg)
-    elif args.model_type == 'llama3':
-        cfg = llm.Llama3Config()
-        model = llm.LlamaModel(config=cfg)
-    elif args.model_type == 'llama31':
-        cfg = llm.Llama31Config()
-        model = llm.LlamaModel(config=cfg)
-    elif args.model_type == 'deepseek':
-        cfg = llm.DeepSeekConfig()
-        model = llm.DeepSeekModel(config=cfg)
-    elif args.model_type == 'gemma':
-        cfg = llm.GemmaConfig()
-        model = llm.GemmaModel(config=cfg)
-    elif args.model_type == 'gemma2':
-        cfg = llm.Gemma2Config()
-        model = llm.Gemma2Model(config=cfg)
-    elif args.model_type == 'qwen2':
-        cfg = llm.Qwen2Config()
-        model = llm.Qwen2Model(config=cfg)
-    elif args.model_type == 'phi3':
-        cfg = llm.Phi3Config()
-        model = llm.Phi3Model(config=cfg)
-    elif args.model_type == 'mistral':
-        cfg = llm.MistralConfig7B()
-        model = llm.MistralModel(config=cfg)
-    elif args.model_type == 'mixtral':
-        cfg = llm.MixtralConfig()
-        model = llm.MixtralModel(config=cfg)
+    config = getattr(llm, args.model_config_name)
+    model = getattr(llm, args.model_name)(config=config)
 
     # Step 2: Log the process
     print(f"Initializing model with HF model ID: {args.source}")
@@ -68,33 +40,28 @@ if __name__ == "__main__":
         help="Path to Huggingface checkpoints",
     )
     parser.add_argument(
-        "--output_path",
+        "--output-path",
         type=str,
         default=None,
         required=True,
         help="Path to output folder.")
     parser.add_argument(
-        '--model_type',
+        '--model-name',
         type=str,
-        default='llama31',
-        choices=[
-            'nemotron3', 'llama31', 'llama3', 'deepseek', 'gemma', 'gemma2', 'qwen2', 'phi3', 'mistral', 'mixtral'
-        ],
-        help=
-        """
-            Model type to use for conversion. 
-                Some model share the same config: 
-                llama32 -> llama31
-                qwen2.5 -> qwen2
-                deepseekv2, deepseekv3 -> deepseek
-                phi3 mini -> phi3
-        """
+        default='LlamaModel',
+        help="Model name"
+    )
+    parser.add_argument(
+        '--model-config-name',
+        type=str,
+        default='Llama32Config1B',
+        help="Model config name"
     )
     parser.add_argument(
         "--overwrite",
-        type=bool,
-        default=False,
-        help="If set to True, existing files at the output path will be overwritten.")
+        action='store_true',
+        help="If set to True, existing files at the output path will be overwritten."
+    )
     args = parser.parse_args()
 
     import_checkpoint(args)

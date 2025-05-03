@@ -33,7 +33,7 @@ if __name__ == "__main__":
         help="Path to nemo folder",
     )
     parser.add_argument(
-        "--output_path",
+        "--output-path",
         type=str,
         default="hf_ckpt",
         help="Output HF model path",

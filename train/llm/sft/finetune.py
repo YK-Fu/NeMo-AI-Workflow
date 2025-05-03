@@ -14,6 +14,7 @@ os.environ['NEMORUN_HOME'] = WORK_PATH
 from nemo import lightning as nl
 from nemo.collections import llm
 from nemo.collections.common.tokenizers.huggingface import AutoTokenizer
+from nemo.lightning.pytorch.strategies.fsdp2_strategy import FSDP2Strategy
 
 import nemo_run as run
 from nemo_run.core.tunnel.client import LocalTunnel
@@ -60,122 +61,91 @@ def configure_dataset(
     return dataset
 
 def configure_recipe(args):
-    model = None
-    if args.model_type == "nemotron3":
-        if args.model_size.lower() == "4b":
-            model = llm.nemotron3_4b
-        elif args.model_size.lower() == "8b":
-            model = llm.nemotron3_8b
-        elif args.model_size.lower() == "22b":
-            model = llm.nemotron3_22b
-    elif args.model_type == "llama31":
-        if args.model_size.lower() == "1b":
-            model = llm.llama32_1b
-        elif args.model_size.lower() == "3b":
-            model = llm.llama32_3b
-        elif args.model_size.lower() == "8b":
-            model = llm.llama31_8b
-        elif args.model_size.lower() == "70b":
-            model = llm.llama31_70b
-    elif args.model_type == "llama3":
-        if args.model_size.lower() == "8b":
-            model = llm.llama3_8b
-        elif args.model_size.lower() == "70b":
-            model = llm.llama3_70b
-    elif args.model_type == "deepseek_v2":
-        model = llm.deepseek_v2
-    elif args.model_type == "deepseek_v2_lite":
-        model = llm.deepseek_v2_lite
-    elif args.model_type == "deepseek_v3":
-        model = llm.deepseek_v3
-    elif args.model_type == "gemma":
-        if args.model_size.lower() == "7b":
-            model = llm.gemma_7b
-        elif args.model_size.lower() == "2b":
-            model = llm.gemma_2b
-    elif args.model_type == "gemma2":
-        if args.model_size.lower() == "27b":
-            model = llm.gemma2_27b
-        elif args.model_size.lower() == "9b":
-            model = llm.gemma2_9b
-        elif args.model_size.lower() == "2b":
-            model = llm.gemma2_2b
-    elif args.model_type == "qwen25":
-        if args.model_size.lower() == "500m":
-            model = llm.qwen25_500m
-        elif args.model_size.lower() == "14b":
-            model = llm.qwen25_14b
-        elif args.model_size.lower() == "32b":
-            model = llm.qwen25_32b
-        elif args.model_size.lower() == "72b":
-            model = llm.qwen25_72b
-        elif args.model_size.lower() == "1p5b":
-            model = llm.qwen25_1p5b
-    elif args.model_type == "qwen2":
-        if args.model_size.lower() == "500m":
-            model = llm.qwen2_500m
-        elif args.model_size.lower() == "7b":
-            model = llm.qwen2_7b
-        elif args.model_size.lower() == "72b":
-            model = llm.qwen2_72b
-        elif args.model_size.lower() == "1p5b":
-            model = llm.qwen2_1p5b
-    elif args.model_type == "phi3":
-        model = llm.phi3_mini_4k_instruct
-    elif args.model_type == "mistral":
-        if args.model_size.lower() == "7b":
-            model = llm.mistral_7b
-        elif args.model_size.lower() == "12b":
-            model = llm.mistral_nemo_12b
-    elif args.model_type == "mixtral":
-        if args.model_size.lower() == "8x7b":
-            model = llm.mixtral_8x7b
-        elif args.model_size.lower() == "8x22b":
-            model = llm.mixtral_8x22b
-
-    if model is None:
-        raise ValueError(f"Model type {args.model_type} with size {args.model_size} not found")
+    try:
+        model = getattr(llm, args.model_name)
+    except AttributeError:
+        raise ValueError(f"Model type {args.model_name} is not supported")
         
     recipe = model.finetune_recipe(
         dir="nemo_experiments",
         name=args.experiment,
         num_nodes=args.num_nodes,
         num_gpus_per_node=args.num_gpus,
-        peft_scheme="lora" if args.peft else None,
+        peft_scheme=args.peft,
         seq_length=args.seq_length,
         packed_sequence=True,
     )
-    if args.peft == "lora":
-        recipe.peft.target_modules = args.target_modules
-        recipe.peft.dim = args.lora_rank
-        recipe.peft.alpha = args.lora_alpha
+
+    # PEFT parameters setting
+    if args.peft is not None:
+        recipe.peft.target_modules = args.peft_target_modules
+        recipe.peft.dim = args.peft_dim
+        recipe.peft.alpha = args.peft_alpha
+
+    # Activation checkpointing parameters setting
+    if args.recompute_granularity is not None:
+        recipe.model.config.recompute_granularity = args.recompute_granularity
+    if args.recompute_granularity == "full":
+        assert args.recompute_method is not None, "recompute_method must be specified when recompute_granularity is full"
+        assert args.recompute_num_layers is not None, "recompute_num_layers must be specified when recompute_method is used"
+        recipe.model.config.recompute_method = args.recompute_method
+        recipe.model.config.recompute_num_layers = args.recompute_num_layers
+
+    # Model parameters and activations CPU offloading setting
+    if args.cpu_offloading:
+        recipe.model.config.cpu_offloading = True
+        recipe.model.config.cpu_offloading_num_layers = args.cpu_offloading_layers
+        recipe.model.config.cpu_offloading_activations = args.cpu_offloading_activations
+        recipe.model.config.cpu_offloading_weights = args.cpu_offloading_weights
 
     recipe.data = configure_dataset(args, seq_length=recipe.data.seq_length)
+
+    # Training configuration
     recipe.trainer.devices = args.num_gpus
-    
     recipe.trainer.max_steps = args.max_steps
     recipe.trainer.val_check_interval = args.max_steps // 5 if args.max_steps > 100 else recipe.trainer.max_steps
     recipe.trainer.num_sanity_val_steps = 0
-    
+
+    # Model Parallelism
     recipe.trainer.strategy.tensor_model_parallel_size = args.tensor_model_parallel_size
     recipe.trainer.strategy.pipeline_model_parallel_size = args.pipeline_model_parallel_size
+    recipe.trainer.strategy.virtual_pipeline_model_parallel_size = args.virtual_pipeline_model_parallel_size
     recipe.trainer.strategy.context_parallel_size = args.context_parallel_size
     recipe.trainer.strategy.sequence_parallel = args.sequence_parallel
-    # Set False, if you have an issue when loading checkpoint.
-    # recipe.trainer.strategy.ckpt_load_strictness = False
 
+    # FP8 training
     if args.fp8:
         recipe.trainer.plugins.fp8 = "hybrid"
+        recipe.trainer.plugins.fp8_recipe = "delayed"
+        recipe.trainer.plugins.fp8_margin = 0
         recipe.trainer.plugins.fp8_amax_history_len = 1024
-        recipe.trainer.plugins.fp8_amax_compute_algo = "max",
+        recipe.trainer.plugins.fp8_amax_compute_algo = "max"
         recipe.trainer.plugins.fp8_params = True
 
-    recipe.optim.config.lr = 5e-6
-    
+    # Setup optimizer and scheduler configuration
+    recipe.optim.config.lr = args.lr
+    recipe.optim.config.optimizer = args.optimizer
+    recipe.optim.config.weight_decay = args.weight_decay
+    recipe.optim.config.adam_beta1 = args.adam_beta1
+    recipe.optim.config.adam_beta2 = args.adam_beta2
+    recipe.optim.config.clip_grad = args.clip_grad
+    recipe.optim.config.use_distributed_optimizer = not args.disable_dist_optim
+    recipe.optim.lr_scheduler.warmup_steps = args.warmup_steps
+    recipe.optim.lr_scheduler.constant_steps = args.constant_steps
+    recipe.optim.lr_scheduler.min_lr = args.min_lr
+    recipe.optim.lr_scheduler.max_steps = args.max_steps
+
+    # Optimizer CPU offloading
+    if args.optim_cpu_offloading:
+        recipe.optim.config.optimizer_cpu_offload = True
+        recipe.optim.config.optimizer_offload_fraction = args.optim_cpu_offloading_frac
+
+    # Checkpoint configuration
     recipe.log.ckpt.save_optim_on_train_end = True
     recipe.log.ckpt.monitor = "val_loss"
     recipe.log.ckpt.save_top_k = 10
 
+    # WandB logging configuration
     if args.wandb:
         recipe.log.wandb = run.Config(
             WandbLogger,
@@ -277,11 +247,7 @@ def parse_args():
     parser.add_argument("-G", "--num-gpus", type=int, default=8, help="Number of GPUs")
     
     # Model configuration
-    parser.add_argument("--model-type", type=str, reauired=True, choices=[
-            'nemotron3', 'llama31', 'llama3', 'deepseek_v2', 'deepseek_v2_lite', 'deepseek_v3', 'gemma', 'gemma2', 'qwen2', 'qwen25', 'phi3', 'mistral', 'mixtral'
-        ], help="Select model type")
-    parser.add_argument("--model-size", type=str, required=True, default="8B", 
-                        help="Select model size")
+    parser.add_argument("--model-name", type=str, default="llama32_1b", help="Select model type")
     parser.add_argument("--hf-model-id", type=str, required=True, help="Huggingface Model ID")
     parser.add_argument("--hf-token", type=str, default=os.getenv("HF_TOKEN"), help="Huggingface Token for downloading tokenizer")
     parser.add_argument("--nemo-model", type=str, nargs="?", help="Pretrained NeMo Model path")
@@ -295,22 +261,59 @@ def parse_args():
     parser.add_argument("-gbs", "--global-batch-size", type=int, default=2048, help="Global batch size (must be multiple of micro_batch_size * data parallel size)")
     parser.add_argument("-mbs", "--micro-batch-size", type=int, default=1, help="Micro batch size per data parallel group")
 
+    # Optimizer and scheduler settings
+    parser.add_argument("--optimizer", type=str, default="adam", choices=["adam", "sgd"], help="Optimizer to use")
+    parser.add_argument("--lr", type=float, default=5e-6, help="Learning rate")
+    parser.add_argument("--adam-beta1", type=float, default=0.9, help="Adam beta1")
+    parser.add_argument("--adam-beta2", type=float, default=0.999, help="Adam beta2")
+    parser.add_argument("--weight-decay", type=float, default=0.0, help="weight decay")
+    parser.add_argument("--clip-grad", type=float, default=1.0, help="Gradient clipping value")
+    parser.add_argument("--min-lr", type=float, default=1e-6, help="Minimum learning rate")
+    parser.add_argument("--warmup-steps", type=int, default=50, help="Number of warmup steps")
+    parser.add_argument("--constant-steps", type=int, default=0, help="Number of constant steps")
+    parser.add_argument("--disable-dist-optim", action="store_true", help="Disable distributed optimizer")
+
     # Model Parallelism Parameters
     parser.add_argument("-TP", "--tensor-model-parallel-size", type=int, default=1,
                         help="Tensor model parallelism size")
     parser.add_argument("-PP", "--pipeline-model-parallel-size", type=int, default=1,
                         help="Pipeline model parallelism size")
+    parser.add_argument("-VPP", "--virtual-pipeline-model-parallel-size", type=int, default=None,
+                        help="Virtual pipeline model parallelism size")
     parser.add_argument("-CP", "--context-parallel-size", type=int, default=1,
                         help="Context parallelism size (usually 1, unless using advanced parallelism)")
-    parser.add_argument("-SP", "--sequence-parallel", action="store_true", default=False,
+    parser.add_argument("-SP", "--sequence-parallel", action="store_true",
                         help="Enable sequence parallelism")
+
+    # Activation checkpointing
+    parser.add_argument("--recompute-granularity", type=str, default=None, choices=["full", "selective"], 
+                        help="Enable activation checkpointing. (For FlashAttention, self-attention recomputation is always enabled.)"
+                        "full: full model checkpointing."
+                        "selective: only MHA is recomputed, but which will disable FlashAttention. (generally does not save more memory than default setting)")
+    parser.add_argument("--recompute-method", type=str, default=None, choices=["block", "uniform"], 
+                        help="uniform: uniform checkpointing."
+                        "block: block checkpointing, and specify the number of layers to recompute.")
+    parser.add_argument("--recompute-num-layers", type=int, default=None, 
+                        help="For block recompute, specify the number of layers to recompute, "
+                        "When training with the pipeline parallelism, recompute-layers indicates the layers per pipeline stage. "
+                        "When using virtual pipelining, recompute_num_layers specifies the number of layers per virtual pipeline stage.")
 
     # PEFT parameters
     parser.add_argument("--peft", type=str, default=None, choices=["lora", "dora"], help="Enable PEFT training mode")
-    parser.add_argument("--target-modules", type=list, default=["linear_qkv", "linear_proj", "linear_fc1", "linear_fc2"], nargs="+",
+    parser.add_argument("--peft-target-modules", type=list, default=["linear_qkv", "linear_proj", "linear_fc1", "linear_fc2"], nargs="+",
                         help="Target modules to apply PEFT to")
-    parser.add_argument("--lora-alpha", type=float, default=32, help="Lora alpha")
-    parser.add_argument("--lora-rank", type=int, default=16, help="Lora rank")
+    parser.add_argument("--peft-alpha", type=float, default=32, help="PEFT alpha")
+    parser.add_argument("--peft-dim", type=int, default=16, help="PEFT rank")
+
+    # CPU offloading. 
+    # Optimizer offloading reduce a lot of memory, but heavily affect the training speed.
+    # Model parameters and activations offloading can not be used with activation checkpointing and fp8.
+    parser.add_argument("--cpu-offloading", action="store_true", help="Enable CPU offloading for model parameters or activations.")
+    parser.add_argument("--cpu-offloading-layers", type=int, default=None, help="Number of layers to offload to CPU. From 0 to total number of layers in the model minus one.")
+    parser.add_argument("--cpu-offloading-activations", action="store_true", help="Activations to offload to CPU, which can not be used with activation checkpointing.")
+    parser.add_argument("--cpu-offloading-weights", action="store_true", help="Parameters to offload to CPU.")
+    parser.add_argument("--optim-cpu-offloading", action="store_true", help="Enable CPU offloading for optimizer states.")
+    parser.add_argument("--optim-cpu-offloading-frac", type=float, default=1.0, help="Fraction of optimizer states to offload to CPU.")
 
     # Dataset settings
     parser.add_argument("--dataset-path", type=str, required=True,
