@@ -1,3 +1,12 @@
+import nemo_run as run
+from nemo.collections import llm
+from nemo.collections.llm.modelopt.recipes import distillation_recipe
+
+# Override the configuration with desired components:
+recipe.data = run.Config(llm.PreTrainingDataModule, ...)
+recipe.trainer.strategy.tensor_model_parallel_size = 8
+
+
 """
 This script is migrate from https://github.com/wcks13589/NeMo-Tutorial, thanks for the author's great work!
 """
@@ -14,7 +23,6 @@ os.environ['NEMORUN_HOME'] = WORK_PATH
 from nemo import lightning as nl
 from nemo.collections import llm
 from nemo.collections.common.tokenizers.huggingface import AutoTokenizer
-from nemo.lightning.pytorch.strategies.fsdp2_strategy import FSDP2Strategy
 
 import nemo_run as run
 from nemo_run.core.tunnel.client import LocalTunnel
@@ -66,15 +74,15 @@ def configure_recipe(args):
     except AttributeError:
         raise ValueError(f"Model type {args.model_name} is not supported")
         
-    recipe = model.finetune_recipe(
-        dir="nemo_experiments",
+    recipe = distillation_recipe(
+        student_model_path=args.student_nemo_model,
+        teacher_model_path=args.teacher_nemo_model,
+        dir="nemo_experiments",  # Path to store logs and checkpoints
         name=args.experiment,
         num_nodes=args.num_nodes,
         num_gpus_per_node=args.num_gpus,
-        peft_scheme=args.peft,
-        seq_length=args.seq_length,
-        packed_sequence=True,
     )
+
 
     # PEFT parameters setting
     if args.peft is not None:
@@ -250,7 +258,8 @@ def parse_args():
     parser.add_argument("--model-name", type=str, default="llama32_1b", help="Select model type")
     parser.add_argument("--hf-model-id", type=str, required=True, help="Huggingface Model ID")
     parser.add_argument("--hf-token", type=str, default=os.getenv("HF_TOKEN"), help="Huggingface Token for downloading tokenizer")
-    parser.add_argument("--nemo-model", type=str, nargs="?", help="Pretrained NeMo Model path")
+    parser.add_argument("--student-nemo-model", type=str, required=True, help="Student NeMo Model path")
+    parser.add_argument("--teacher-nemo-model", type=str, required=True, help="Teacher NeMo Model path")
     parser.add_argument("--seq-length", type=int, default=8192, help="Sequence length for the training")
     parser.add_argument("--fp8", action="store_true", help="Enable FP8 training mode")
 
