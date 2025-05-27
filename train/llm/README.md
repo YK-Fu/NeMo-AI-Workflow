@@ -1,31 +1,31 @@
-# NeMo LLM Training Examples
+# NeMo LLM Training Guide
 
-This directory contains examples and resources for training Large Language Models (LLMs) using NVIDIA's NeMo framework.
+This folder shows you how to train Large Language Models (LLMs) using NVIDIA's NeMo toolkit. It includes everything you need to know, from the first training steps to making your model work better.
 
-## Continual Pre-training and Supervised Fine-tuning
+## How to Train Your Model
 
-For comprehensive examples of continual pre-training and supervised fine-tuning with NeMo, please refer to the [NeMo-Tutorial](https://github.com/wcks13589/NeMo-Tutorial/) repository.
+### 1. Pre-training and Fine-tuning
+- **Pre-training**: Learn how to train a new model or improve an existing one
+  - [See the Pre-training Guide](pretrain/README.md)
+- **Fine-tuning**: Make your model better at specific tasks
+  - [See the Fine-tuning Guide](sft/README.md)
 
-The NeMo-Tutorial repository provides:
-- Step-by-step guides for continual pre-training
-- Examples of supervised fine-tuning
-- Best practices for model training
-- Code samples and configurations
+### 2. Downsize Your Models
+- **Pruning**: Make your model smaller without losing quality
+- **Distillation**: Copy knowledge from a big model to a smaller one
+  - [See the Distillation Guide](distil/README.md)
 
-## Getting Started
+### 3. Model Alignment
+- Teach your model to be more helpful and follow instructions (using methods like RLHF and DPO)
+- [See the Alignment Guide](align/README.md)
 
-1. Clone the NeMo-Tutorial repository:
-```bash
-git clone https://github.com/wcks13589/NeMo-Tutorial.git
+## Folder Structure
+
 ```
-
-2. Follow the instructions in the repository for:
-   - Setting up your environment
-   - Preparing your dataset
-   - Running training scripts
-
-## Additional Resources
-
-- [NeMo Documentation](https://docs.nvidia.com/deeplearning/nemo/user-guide/docs/en/main/)
-- [NeMo GitHub Repository](https://github.com/NVIDIA/NeMo)
-- [NVIDIA NGC Containers](https://catalog.ngc.nvidia.com/orgs/nvidia/containers/nemo) 
+llm/
+├── ckpt_conversion/  # Tools to change model file formats
+├── pretrain/         # Examples for first-time training
+├── sft/              # Examples for fine-tuning
+├── distil/           # Tools for making models smaller
+└── align/            # Examples for making models more helpful
+```
