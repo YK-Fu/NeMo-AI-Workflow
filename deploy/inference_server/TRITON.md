@@ -24,7 +24,7 @@ You can also deploy Huggingface models in Triton inference server, see `/opt/NeM
 After you successfully launch the server, you can query the model by the following command:
 ```bash
 python /opt/NeMo/scripts/deploy/nlp/query_inframework.py \
- --triton_model_name <USER_DEFINED_NAME> \
+ --model_name <USER_DEFINED_NAME> \
  --url <HTTP_ADDRESS> \
  --prompt "<|begin_of_text|><|start_header_id|>user<|end_header_id|>What is the color of a banana?<|eot_id|><|start_header_id|>assistant<|end_header_id|>"
  # --prompt_file <PATH_TO_PROMPT_FILE> \                # You can also pass a txt file containing several lines of prompts
@@ -53,6 +53,23 @@ python /opt/NeMo/scripts/deploy/nlp/deploy_triton.py \
  --num_gpus 8 \
  --tensor_parallelism_size <TP> \
  --pipeline_parallelism_size <PP> \
- --max_batch _size <BATCH_SIZE> \
+ --max_batch_size <BATCH_SIZE> \
  # --debug_mode \
+```
+
+After you successfully launch the server, you can query the model by the following command:
+```bash
+python /opt/NeMo/scripts/deploy/nlp/query.py \
+ --model_name <USER_DEFINED_NAME> \
+ --url <HTTP_ADDRESS> \
+ --prompt "<|begin_of_text|><|start_header_id|>user<|end_header_id|>What is the color of a banana?<|eot_id|><|start_header_id|>assistant<|end_header_id|>"
+ # --prompt_file <PATH_TO_PROMPT_FILE> \                # You can also pass a txt file containing several lines of prompts
+ --max_output_len 128 \
+ --top_k 20 \
+ --top_p 1.0 \
+ --temperature 1.0 \
+```
+Output:
+```
+The color of a banana is yellow.
 ```

@@ -5,7 +5,7 @@ This directory contains deployment options for serving NeMo models in production
 ## Inference Options
 
 ### 1. Native NeMo Python Server
-For simple deployment or development purposes, you can use NeMo's native Python inference server. This is the easiest way to get started but may not provide optimal performance (See [nemo-native-inference](./TRITON.md#nemo-native-inference) for deployment instructions).
+For simple deployment or development purposes, you can use NeMo's native Python inference server. This is the easiest way to get started but may not provide optimal performance (See [nemo native inference](./TRITON.md#nemo-backend-inference-server) for deployment instructions).
 
 ### 2. Optimized Inference
 For production-grade performance, we recommend using TensorRT-LLM, which provides significant speedup.
@@ -13,7 +13,7 @@ For production-grade performance, we recommend using TensorRT-LLM, which provide
 To use TensorRT-LLM, you'll need to:
 1. Export your model to TensorRT-LLM (See [TRT.md](./TRT.md) for compile instructions)
 2. Choose one of the following deployment options:
-   - NVIDIA Triton Inference Server (See [tensorrt-llm-inference](./TRITON.md#tensorrt-llm-inference) for deployment instructions)
+   - NVIDIA Triton Inference Server (See [tensorrt-llm inference](./TRITON.md#tensorrt-llm-backend-inference-server) for deployment instructions)
    - NVIDIA Inference Microservice (NIM) (See [NIM.md](./NIM.md) for deployment instructions)
 
 ## Additional Resources
