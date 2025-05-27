@@ -61,7 +61,7 @@ def configure_dataset(
     seq_length: int = 8192,
 ) -> run.Config[pl.LightningDataModule]:
 
-    preprocessed_data_path = os.path.join(WORK_PATH, args.dataset_path)
+    preprocessed_data_path = os.path.join(WORK_PATH, args.dataset_dir)
     dataset_paths, total_steps = calculate_training_steps(
         path=preprocessed_data_path,
         seq_length=seq_length, 
@@ -75,9 +75,9 @@ def configure_dataset(
         global_batch_size=args.global_batch_size,
         micro_batch_size=args.micro_batch_size,
         tokenizer=run.Config(AutoTokenizer, pretrained_model_name=args.hf_model_id),
-        split="998,1,0",
+        split="998,1,1",
         num_workers=0,
-        index_mapping_dir=os.path.join(WORK_PATH, os.path.dirname(os.path.dirname(args.dataset_path)), "index_mapping"),
+        index_mapping_dir=os.path.join(WORK_PATH, os.path.dirname(os.path.dirname(args.dataset_dir)), "index_mapping"),
     )
 
     return dataset, total_steps
@@ -248,19 +248,19 @@ def parse_args():
     # Execution mode
     parser.add_argument("--executor", type=str, choices=["slurm", "local"], default="local",
                         help="Select execution mode: 'slurm' (Multiple Nodes) or 'local' (Single Node).")
-    parser.add_argument("-E", "--experiment", type=str, default="llama31_pretraining", help="Name of experiment")
+    parser.add_argument("-E", "--experiment", type=str, default="pretraining", help="Name of experiment")
     
     # Slurm parameters setting
     parser.add_argument("-A", "--account", type=str, default="root", help="Slurm partition name")
     parser.add_argument("-P", "--partition", type=str, default="defq", help="Slurm partition name")
-    parser.add_argument("-I", "--container_image", type=str, default="nvcr.io/nvidia/nemo:dev", help="NEMO image path")
+    parser.add_argument("-I", "--container-image", type=str, default="nvcr.io/nvidia/nemo:dev", help="NEMO image path")
     
     # Hardware configuration
-    parser.add_argument("-N", "--num_nodes", type=int, default=1, help="Number of nodes")
-    parser.add_argument("-G", "--num_gpus", type=int, default=8, help="Number of GPUs")
+    parser.add_argument("-N", "--num-nodes", type=int, default=1, help="Number of nodes")
+    parser.add_argument("-G", "--num-gpus", type=int, default=8, help="Number of GPUs")
 
     # Model configuration
-    parser.add_argument("--model-name", type=str, default="llama32_1b", help="Select model type")
+    parser.add_argument("--model-name", type=str, default=None, help="Select model type")
     parser.add_argument("--hf-model-id", type=str, required=True, help="Huggingface Model ID")
     parser.add_argument("--hf-token", type=str, default=os.getenv("HF_TOKEN"), help="Huggingface Token for downloading tokenizer")
     parser.add_argument("--nemo-model", type=str, nargs="?", help="Pretrained NeMo Model path")
@@ -306,7 +306,7 @@ def parse_args():
                         help="uniform: uniform checkpointing."
                         "block: block checkpointing, and specify the number of layers to recompute.")
     parser.add_argument("--recompute-num-layers", type=int, default=None, 
-                        help="For block recompute, specify the number of layers to recompute, "
+                        help="For full recompute, specify the number of layers to recompute, "
                         "When training with the pipeline parallelism, recompute-layers indicates the layers per pipeline stage. "
                         "When using virtual pipelining, recompute_num_layers specifies the number of layers per virtual pipeline stage.")
 
@@ -321,7 +321,7 @@ def parse_args():
     parser.add_argument("--optim-cpu-offloading-frac", type=float, default=1.0, help="Fraction of optimizer states to offload to CPU.")
 
     # Dataset path
-    parser.add_argument("--dataset-path", type=str, required=True,
+    parser.add_argument("--dataset-dir", type=str, required=True,
                         help="Path to the folder containing the preprocessed dataset. "
                         "This folder should include files named in the format: "
                         "'<dataset_name>_text_document.bin' and '<dataset_name>_text_document.idx'.")
@@ -330,7 +330,7 @@ def parse_args():
     parser.add_argument("--wandb", action="store_true", help="Enable WandB logging")
     parser.add_argument("--wandb-project", type=str, default=None, help="WandB project name")
     parser.add_argument("--wandb-name", type=str, default=None, help="WandB run name")
-    parser.add_argument("--wandb-token", type=str, default=None, help="WandB personal token")
+    parser.add_argument("--wandb-token", type=str, default=os.getenv("WANDB_API_KEY"), help="WandB personal token")
 
     return parser.parse_args()
 
