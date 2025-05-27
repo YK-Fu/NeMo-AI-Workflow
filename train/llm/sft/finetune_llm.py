@@ -46,7 +46,7 @@ def configure_dataset(
     seq_length: int = 8192,
 ) -> run.Config[pl.LightningDataModule]:
 
-    data_path = os.path.join(WORK_PATH, args.dataset_path)
+    data_path = os.path.join(WORK_PATH, args.dataset_dir)
     dataset = run.Config(
         llm.FineTuningDataModule,
         dataset_root=data_path,
@@ -315,10 +315,10 @@ def parse_args():
     parser.add_argument("--optim-cpu-offloading-frac", type=float, default=1.0, help="Fraction of optimizer states to offload to CPU.")
 
     # Dataset settings
-    parser.add_argument("--dataset-path", type=str, required=True,
-                        help="Path to the folder containing the preprocessed dataset. "
+    parser.add_argument("--dataset-dir", type=str, required=True,
+                        help="Path to the folder containing the dataset."
                         "This folder should include files named in the format: "
-                        "'training.jsonl', 'validation.jsonl' 'test.jsonl'.")
+                        "'training.jsonl', 'validation.jsonl', 'test.jsonl'.")
     parser.add_argument("--prompt-template", type=str, default=PROMPT_TEMPLATE, help="Prompt template")
 
     # WandB logging parameters
