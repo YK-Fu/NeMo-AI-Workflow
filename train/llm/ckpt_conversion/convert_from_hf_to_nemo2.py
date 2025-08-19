@@ -54,7 +54,7 @@ if __name__ == "__main__":
     parser.add_argument(
         '--model-config-name',
         type=str,
-        default='Llama32Config1B',
+        default='Llama31NemotronNano8BConfig',
         help="Model config name"
     )
     parser.add_argument(

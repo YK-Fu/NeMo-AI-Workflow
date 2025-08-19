@@ -1,3 +1,77 @@
+# Llama Nemotron 4b/8b Models Pretraining
+The following scripts are tested under `nvcr.io/nvidia/nemo:25.07`
+You should always run this line when you open a new terminal or reboot the system.
+```
+export HF_TOKEN=<HF_TOKEN>
+```
+You should first run the [checkpoint conversion](../ckpt_conversion/README.md).
+
+Preprocess the dataset:
+```
+bash preprocess_data.sh \
+    --hf-tokenizer nvidia/Llama-3.1-Nemotron-Nano-4B-v1.1 \
+    --input-dir <JSON_DATA_DIR> \
+    --data-prefix <FILE_NAME_WITHOUT_EXTENSION> \
+    --output-dir ./train_data
+```
+You should see the following output:
+```
+Vocab size: 128256
+Output prefix: ./train_data/zh_classicalwiki-20250801-pages-articles-multistream.xml.bz2
+Time to startup: 1.2326459884643555
+Processing file ../../../download_example_data/wiki_data_zh_classical//zh_classicalwiki-20250801-pages-articles-multistream.xml.bz2.jsonl 1/1
+[NeMo I 2025-08-19 14:16:18 nemo_logging:393] Getting HuggingFace AutoTokenizer with pretrained_model_name: nvidia/Llama-3.1-Nemotron-Nano-4B-v1.1
+Processed 100 documents (55.508891234015884 docs/s, 0.07023364187899198 MB/s).
+Processed 200 documents (105.32347204773514 docs/s, 0.10747589274257359 MB/s).
+Processed 300 documents (152.34792766383117 docs/s, 0.13458047303133452 MB/s).
+Processed 400 documents (193.66206710269026 docs/s, 0.16770870608116686 MB/s).
+Processed 500 documents (228.90161927698745 docs/s, 0.202085942671777 MB/s).
+Processed 600 documents (259.017416948602 docs/s, 0.2302350141999475 MB/s).
+Processed 700 documents (287.0651509901358 docs/s, 0.25401713466425646 MB/s).
+Processed 800 documents (314.59892154170427 docs/s, 0.2745321697492195 MB/s).
+...
+```
+and you should see the `.bin` and `.idx` data in `./train_data`.
+
+
+Start pretraining:
+```
+python pretrain_llm.py \
+    --num-gpus 4 \
+    --model-name llama31_nemotron_nano_4b \
+    --nemo-model ../ckpt_conversion/nemo_llama_nemotron_model \
+    --seq-length 4096 \
+    -gbs 4 \
+    --max-steps 100 \
+    -TP 4 \
+    --dataset-dir ./train_data/ \
+    --hf-model-id nvidia/Llama-3.1-Nemotron-Nano-4B-v1.1
+```
+If everything goes smoothly, you should see the following output:
+```
+retraining/0 [default0]:
+retraining/0 [default0]:  | Name   | Type | Params | Mode  | FLOPs
+retraining/0 [default0]:------------------------------------------------
+retraining/0 [default0]:0 | module | DDP  | 1.1 B  | train | 0    
+retraining/0 [default0]:------------------------------------------------
+retraining/0 [default0]:1.1 B     Trainable params
+retraining/0 [default0]:0         Non-trainable params
+retraining/0 [default0]:1.1 B     Total params
+retraining/0 [default0]:4,514.918 Total estimated model params size (MB)
+retraining/0 [default0]:651       Modules in train mode
+retraining/0 [default0]:0         Modules in eval mode
+retraining/0 [default0]:0         Total Flops
+retraining/0 [default0]:[NeMo W 2025-08-19 14:27:43 nemo_logging:405] /opt/venv/lib/python3.12/site-packages/lightning/pytorch/trainer/connectors/data_connector.py:425: The 'train_dataloader' does not have many workers which may be a bottleneck. Consider increasing the value of the `num_workers` argument` to `num_workers=31` in the `DataLoader` to improve performance.
+retraining/0 [default0]:    
+retraining/0 [default0]:[NeMo W 2025-08-19 14:27:43 nemo_logging:405] /opt/venv/lib/python3.12/site-packages/lightning/pytorch/trainer/connectors/data_connector.py:425: The 'val_dataloader' does not have many workers which may be a bottleneck. Consider increasing the value of the `num_workers` argument` to `num_workers=31` in the `DataLoader` to improve performance.
+retraining/0 [default0]:    
+retraining/0 [default0]:[NeMo W 2025-08-19 14:27:47 rerun_state_machine:1263] Implicit initialization of Rerun State Machine!
+retraining/0 [default0]:[NeMo W 2025-08-19 14:27:47 rerun_state_machine:239] RerunStateMachine initialized in mode RerunMode.DISABLED
+retraining/0 [default0]:Training epoch 0, iteration 0/99 | lr: 9.804e-08 | global_batch_size: 4 | global_step: 0 | reduced_train_loss: 14.66 | train_step_timing in s: 5.276
+retraining/0 [default0]:Training epoch 0, iteration 1/99 | lr: 1.961e-07 | global_batch_size: 4 | global_step: 1 | reduced_train_loss: 15.07 | train_step_timing in s: 2.008 | consumed_samples: 8
+...
+```
+
 # Pretraining Script Guide
 
 This document explains how to use the `pretrain_llm.py` script for pretraining the large language model. The script is built on the NVIDIA NeMo platform and utilizes PyTorch Lightning with NeMo for pretraining tasks.
