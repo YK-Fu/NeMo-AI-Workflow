@@ -32,7 +32,7 @@ Example usage:
 ```bash
 # input-dir contains several *.jsonl files
 # output-dir will use the input file name as file names
-python pretrain_data.py \
+python pretrain_data_filter.py \
     --input-dir /path/to/input/directory \
     --output-dir /path/to/output/directory \
     --cleaning \
