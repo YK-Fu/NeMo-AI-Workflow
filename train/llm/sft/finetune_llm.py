@@ -60,10 +60,13 @@ def configure_dataset(
     return dataset
 
 def configure_recipe(args):
-    try:
-        model = getattr(llm, args.model_name)
-    except AttributeError:
-        raise ValueError(f"Model type {args.model_name} is not supported")
+    if args.model_name == "llama31_nemotron_nano_4b":
+        model = llm.llama31_nemotron_nano_8b
+    else:
+        try:
+            model = getattr(llm, args.model_name)
+        except AttributeError:
+            raise ValueError(f"Model type {args.model_name} is not supported")
         
     recipe = model.finetune_recipe(
         dir="nemo_experiments",
@@ -74,6 +77,11 @@ def configure_recipe(args):
         seq_length=args.seq_length,
         packed_sequence=True,
     )
+    if args.model_name == "llama31_nemotron_nano_4b":
+        recipe.model.config.hidden_size = 3072
+        recipe.model.config.ffn_hidden_size = 9216
+        recipe.model.config.scale_factor = 4.0
+        recipe.model.config.rotary_base = 3565775107.2609234
 
     # PEFT parameters setting
     if args.peft is not None:
@@ -246,7 +254,7 @@ def parse_args():
     parser.add_argument("-G", "--num-gpus", type=int, default=8, help="Number of GPUs")
     
     # Model configuration
-    parser.add_argument("--model-name", type=str, default="llama32_1b", help="Select model type")
+    parser.add_argument("--model-name", type=str, default="llama31_nemotron_nano_4b", help="Select model type")
     parser.add_argument("--hf-model-id", type=str, required=True, help="Huggingface Model ID")
     parser.add_argument("--hf-token", type=str, default=os.getenv("HF_TOKEN"), help="Huggingface Token for downloading tokenizer")
     parser.add_argument("--nemo-model", type=str, nargs="?", help="Pretrained NeMo Model path")
